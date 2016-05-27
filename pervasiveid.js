@@ -15,69 +15,79 @@ storage.initSync({
     interval: false
 });
 
-
 var mysql      = require('mysql');
 var connection = mysql.createConnection({
-  host     : 'localhost',
+  host     : '10.100.1.99',
   user     : 'root',
   password : 'control123!',
-  database : 'testpervasive'
+  database : 'pervasid_retail'
 });
 
-// main
-connection.connect();
+function work(){
 
-var lastWindowTimestamp = storage.getItemSync(LAST_WINDOW_TIME);
-// handle case for first time
+	// main
+	connection.connect();
 
-console.log("proccessing tags since: " + new Date(lastWindowTimestamp));
+	var lastWindowTimestamp = storage.getItemSync(LAST_WINDOW_TIME);
+	var endWindowsTime = lastWindowTimestamp + 10*60*1000;
+	var processingTime = new Date(lastWindowTimestamp);
+	
+	// console.log("proccessing tags since: " + new Date(lastWindowTimestamp));
+	var query = 'SELECT tag_id, zone_name FROM tag_reads_simple where time_stamp >= ' 
+		+ lastWindowTimestamp
+		+ ' and time_stamp < ' + endWindowsTime;
+	// console.log('query: ' + query);
+	// console.log('query started at: ' + new Date());
 
+	connection.query(query, function(err, rows, fields) {
+	  // console.log('query finished at: ' + new Date());
+	  // console.log('rows returned :' + rows.length);
+	  if (err) throw err;
 
-connection.query('SELECT tagid, zone FROM tags where timestamp >= ' + lastWindowTimestamp, function(err, rows, fields) {
-  if (err) throw err;
+	  connection.end();
 
-  connection.end();
-  storage.setItemSync(LAST_WINDOW_TIME, new Date().getTime());
-  // process rows
+	  storage.setItemSync(LAST_WINDOW_TIME, endWindowsTime);
 
-  var i;
-  // get unique tag ids
-  var tags = [];
-  rows.forEach(function (row) {
-  	if(tags.indexOf(row.tagid) < 0) {
-  		tags.push(row.tagid);
-  	}
-  });
+	  // process rows
+	  var i;
+	  // get unique tag ids
+	  var tags = {};
+	  rows.forEach(function (row) {
+	  		tags[row.tag_id] = row.zone_name;
+	  });
 
-  var tag_zone_changes = [];
+	  var count = 0;
+	  for (var tagid in tags) {
+	    if (tags.hasOwnProperty(tagid)) {
+	       ++count;
+	    }
+	  }
+	  
+	  var tag_zone_changes = [];
 
-  // process tags one by one
-  tags.forEach(function (tagid) {
-  	console.log("Processing tag: "+ tagid);
+	  // process tags one by one
+	  for (var tagid in tags) {
+	  	// console.log("----------------------------");
+	  	// console.log("Processing tag: "+ tagid);
 
-  	// find last zone
-  	var previous_zone = storage.getItemSync(tagid);
-  	var new_zone = null;
-  	console.log("previous zone: " + previous_zone);
+	  	// find last zone
+	  	var previous_zone = storage.getItemSync(tagid);
+	  	var new_zone = null;
 
-  	rows.forEach(function(row){
-  		if(row.tagid == tagid && row.zone !== previous_zone) {
-  			new_zone = row.zone;
-  		}
-  	});
+	  	if(previous_zone == null) {
+	  		new_zone = tags[tagid];
+	  	} else if (tags[tagid] != previous_zone) {
+	  		new_zone = tags[tagid];
+	  	}
 
-  	console.log("new zone: "+ new_zone);
+	  	if(new_zone !=null) {
+	  		storage.setItemSync(tagid, new_zone);
+	  		tag_zone_changes.push({tagid:tagid, zone:new_zone});
+	  	}
+	  }
 
-  	if(new_zone !=null) {
-  		tag_zone_changes.push({tagid:tagid, zone:new_zone});
-  	}
-  });
+	  console.log(processingTime.toISOString()+"," + tag_zone_changes.length);	  
+	});
+}
 
-  console.log("Tag zone changes are:");
-  console.log(tag_zone_changes);
-
-  
-
-
-
-});
+work();
