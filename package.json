@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "mysql": "^2.10.2",
+    "node-persist": "0.0.11"
+  }
+}
