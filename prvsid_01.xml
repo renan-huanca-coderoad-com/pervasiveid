@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ale:ECReports xmlns:ale="urn:epcglobal:ale:xsd:1" xmlns:ale_mojix_ext="urn:mojix:ale:xsd:1" xmlns:epcglobal="urn:epcglobal:xsd:1" xmlns:ns3="urn:epcglobal:ale:xsd:1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:epcglobal:ale:xsd:1 http://192.168.78.13:8080/services/ALEService/?xsd=EPCglobal-ale-1_1-ale.xsd" specName="MojStoreTest" schemaVersion="1.1" terminationTrigger="urn:com.mojix.epc.triggers:duration_elapsed:MojStoreTest" creationDate="2014-09-11T16:13:20.492-07:00" totalMilliseconds="1000" terminationCondition="TRIGGER" initiationCondition="REQUESTED" ALEID="PRVSID" date="ts%" ale_mojix_ext:longitude="-0.475919" ale_mojix_ext:latitude="51.344924" ale_mojix_ext:elevation="0.0" ale_mojix_ext:declination="0.0" ale_mojix_ext:units="ft">
+   <reports>
+      <report reportName="MojStoreTest" ale_mojix_ext:reportID="44">
+         <group>
+            <groupList>
+               <member ale_mojix_ext:direction="in" ale_mojix_ext:ts="2016-05-02T10:30:00.000Z" ale_mojix_ext:logicalReader="GFSales">
+                  <rawHex>urn:epc:raw:96.x3039ecbc03b2bfc12a05f267</rawHex>
+               </member>
+            </groupList>
+            <groupCount>
+               <count>1</count>
+            </groupCount>
+         </group>
+      </report>
+   </reports>
+</ale:ECReports>

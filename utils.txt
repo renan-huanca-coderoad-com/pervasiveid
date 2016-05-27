@@ -1,0 +1,1 @@
+echo 1462173000000 > lastWindowTime
