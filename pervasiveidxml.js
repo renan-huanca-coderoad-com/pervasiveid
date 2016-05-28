@@ -2,6 +2,8 @@
 const storage = require('node-persist');
 const mysql = require('mysql');
 const fs = require('fs');
+var request = require('request');
+
 
 // constants
 var LAST_WINDOW_TIME = 'lastWindowTime';
@@ -9,6 +11,7 @@ var TAGS_MAP = 'tagsmap';
 var DEFAULT_STARTTIME = 1462173000000;
 var LAST_DETECT_THRESHOLD = 6 * 3600 * 1000; // 6 hours
 var DEFAULT_WINDOWS_SIZE = 10 * 60 * 1000;
+
 
 // initialization
 storage.initSync({
@@ -33,7 +36,8 @@ var connection = mysql.createConnection({
 var params = {
 	out: null,
 	threshold: LAST_DETECT_THRESHOLD,
-	windows_size: DEFAULT_WINDOWS_SIZE
+	windows_size: DEFAULT_WINDOWS_SIZE,
+	aleBridgeUrl: null
 }
 
 if(process.argv.length <= 2) {
@@ -50,7 +54,9 @@ for(indexParam = 2; indexParam < process.argv.length; indexParam++)
 		params.threshold = parseInt(process.argv[indexParam + 1]) * 60 * 1000; 
 	} else if(process.argv[indexParam] === "-w") {
 		params.windows_size = parseInt(process.argv[indexParam + 1]) * 60 * 1000; 
-	} 
+	} else if(process.argv[indexParam] === "-a") {
+		params.aleBridgeUrl = process.argv[indexParam + 1]; 
+	}
 }
 
 function read_zone_changes(cb) {
@@ -195,5 +201,18 @@ read_zone_changes(function(err, tagchanges) {
 		tagchanges.tagzones.length + ", " + 
 		tagchanges.zoneChangesCount+ ", " + 
 		tagchanges.lastDetectChangesCount+ ", " +
-		(fileSizeInBytes/(1024*1024)).toFixed(2) + " MB");	  
+		(fileSizeInBytes/(1024*1024)).toFixed(2) + " MB");
+
+	if(params.aleBridgeUrl != null) {
+		var formData = {
+			file: fs.createReadStream(outfile)
+		};
+
+		request.post({url:params.aleBridgeUrl, formData: formData}, function (err, httpResponse, body) {
+		  if (err) {
+		    return console.error('upload failed:', err);
+		  }
+		  console.log('Upload successful!');
+		});
+	}
 });
