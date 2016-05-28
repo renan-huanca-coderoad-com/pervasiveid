@@ -20,10 +20,11 @@ storage.initSync({
 
 
 var connection = mysql.createConnection({
-    host: '10.100.1.99',
+    host: '10.100.0.39',
     user: 'root',
     password: 'control123!',
-    database: 'pervasid_retail'
+    database: 'pervasid_retail',
+    port: 3307
 });
 
 function read_zone_changes(cb) {
@@ -96,6 +97,7 @@ function read_zone_changes(cb) {
             }
         }
         cb(null, {
+        	tagCounts: count,
             datetime: processingTime,
             tagzones: tag_zone_changes
         });
@@ -115,16 +117,18 @@ var indexParam;
 for(indexParam = 2; indexParam < process.argv.length; indexParam++)
 {
 	if(process.argv[indexParam] === "-o") {
-		params.out = process.argv[indexParam + 1];
+		params.out = process.argv[indexParam + 1]; 
 	}
 }
+
+var t0 = new Date().getTime();
 
 read_zone_changes(function(err, tagchanges) {
 	var timestamp_str = new Date(tagchanges.datetime).toISOString(); 
 	var header = fs.readFileSync('header.xml').toString();
 	var footer = fs.readFileSync('footer.xml').toString();
 	footer = footer.replace('__COUNT__', tagchanges.tagzones.length);
-	var outfile = params.out + '/' + timestamp_str + '.csv';  
+	var outfile = params.out + '/' + timestamp_str + '.xml';  
 
 	// start to write xml
 	// console.log(header);	
@@ -141,6 +145,7 @@ read_zone_changes(function(err, tagchanges) {
 		fs.appendFileSync(outfile, item_end);
 	});
 	fs.appendFileSync(outfile, footer);
-	console.log(timestamp_str+"," + tagchanges.tagzones.length);	  
-
+	var t1 = new Date().getTime();
+	var secs = (t1 - t0)/ 1000;
+	console.log(timestamp_str+", "+ secs + ", " + tagchanges.tagCounts + ", " + tagchanges.tagzones.length);	  
 });
