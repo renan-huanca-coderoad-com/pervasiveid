@@ -1,14 +1,13 @@
 // modules
-var storage = require('node-persist');
-var mysql = require('mysql');
-
+const storage = require('node-persist');
+const mysql = require('mysql');
 const fs = require('fs');
 
 // constants
 var LAST_WINDOW_TIME = 'lastWindowTime';
 var TAGS_MAP = 'tagsmap';
 var DEFAULT_STARTTIME = 1462173000000;
-var LAST_DETECT_THRESHOULD = 6 * 3600 * 1000; // 6 hours
+var LAST_DETECT_THRESHOLD = 6 * 3600 * 1000; // 6 hours
 
 // initialization
 storage.initSync({
@@ -30,6 +29,20 @@ var connection = mysql.createConnection({
     port: 3307
 });
 
+var params = {
+	out: null,
+	threshold: LAST_DETECT_THRESHOLD
+}
+
+var indexParam;
+for(indexParam = 2; indexParam < process.argv.length; indexParam++)
+{
+	if(process.argv[indexParam] === "-o") {
+		params.out = process.argv[indexParam + 1]; 
+	} else if(process.argv[indexParam] === "-t") {
+		params.threshold = parseInt(process.argv[indexParam + 1]) * 60 * 1000; 
+	} 
+}
 
 function read_zone_changes(cb) {
 	var tagsmap = storage.getItemSync(TAGS_MAP);
@@ -86,6 +99,8 @@ function read_zone_changes(cb) {
         var tag_zone_changes = [];
 
         // process tags one by one
+        var zoneChangesCount = 0;
+        var lastDetectChangesCount = 0;
         for (var tagid in tags) {
 
             // find last zone
@@ -104,10 +119,20 @@ function read_zone_changes(cb) {
                 new_zone = tags[tagid].zone;
             }
 
-            if (new_zone != null) {
+            var send = false;
+
+            if(new_zone != null) {
+            	zoneChangesCount++;
+            	send = true;
+            } else if(tags[tagid].timestamp - tagsmap[tagid].timestamp > params.threshold) {
+            	lastDetectChangesCount++;
+            	send = true;
+            }
+
+            if (send) {
                 tagsmap[tagid] = {
                 	zone: new_zone,
-                	lastDetectTime: tags[tagid].timestamp
+                	timestamp: tags[tagid].timestamp
                 };
 
                 tag_zone_changes.push({
@@ -119,6 +144,8 @@ function read_zone_changes(cb) {
         storage.setItemSync(TAGS_MAP, tagsmap);
         cb(null, {
         	tagCounts: count,
+        	zoneChangesCount: zoneChangesCount,
+        	lastDetectChangesCount: lastDetectChangesCount,
             datetime: processingTime,
             tagzones: tag_zone_changes
         });
@@ -126,20 +153,8 @@ function read_zone_changes(cb) {
 }
 
 if(process.argv.length <= 2) {
-	console.log("\tnode pervasiveidxml.js -o <folder>");
+	console.log("\tnode pervasiveidxml.js -o <folder> -t <last detect time [t]hreshold>");
 	return;
-}
-
-var params = {
-	out: null
-}
-
-var indexParam;
-for(indexParam = 2; indexParam < process.argv.length; indexParam++)
-{
-	if(process.argv[indexParam] === "-o") {
-		params.out = process.argv[indexParam + 1]; 
-	}
 }
 
 var t0 = new Date().getTime();
@@ -168,5 +183,13 @@ read_zone_changes(function(err, tagchanges) {
 	fs.appendFileSync(outfile, footer);
 	var t1 = new Date().getTime();
 	var secs = (t1 - t0)/ 1000;
-	console.log(timestamp_str+", "+ secs + ", " + tagchanges.tagCounts + ", " + tagchanges.tagzones.length);	  
+	var stats = fs.statSync(outfile);
+	var fileSizeInBytes = stats["size"];
+	console.log(timestamp_str+", "+ 
+		secs + ", " + 
+		tagchanges.tagCounts + ", " + 
+		tagchanges.tagzones.length + ", " + 
+		tagchanges.zoneChangesCount+ ", " + 
+		tagchanges.lastDetectChangesCount+ ", " +
+		fileSizeInBytes);	  
 });
