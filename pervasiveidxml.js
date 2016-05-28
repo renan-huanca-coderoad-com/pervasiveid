@@ -8,6 +8,7 @@ var LAST_WINDOW_TIME = 'lastWindowTime';
 var TAGS_MAP = 'tagsmap';
 var DEFAULT_STARTTIME = 1462173000000;
 var LAST_DETECT_THRESHOLD = 6 * 3600 * 1000; // 6 hours
+var DEFAULT_WINDOWS_SIZE = 10 * 60 * 1000;
 
 // initialization
 storage.initSync({
@@ -31,7 +32,13 @@ var connection = mysql.createConnection({
 
 var params = {
 	out: null,
-	threshold: LAST_DETECT_THRESHOLD
+	threshold: LAST_DETECT_THRESHOLD,
+	windows_size: DEFAULT_WINDOWS_SIZE
+}
+
+if(process.argv.length <= 2) {
+	console.log("\tnode pervasiveidxml.js -o <folder> -t <last detect time [t]hreshold in mins> -w time [w]indow size in mins");
+	return;
 }
 
 var indexParam;
@@ -41,6 +48,8 @@ for(indexParam = 2; indexParam < process.argv.length; indexParam++)
 		params.out = process.argv[indexParam + 1]; 
 	} else if(process.argv[indexParam] === "-t") {
 		params.threshold = parseInt(process.argv[indexParam + 1]) * 60 * 1000; 
+	} else if(process.argv[indexParam] === "-w") {
+		params.windows_size = parseInt(process.argv[indexParam + 1]) * 60 * 1000; 
 	} 
 }
 
@@ -57,16 +66,16 @@ function read_zone_changes(cb) {
     	lastWindowTimestamp = DEFAULT_STARTTIME;
     }
 
-    var endWindowsTime = lastWindowTimestamp + 10 * 60 * 1000;
+    var endWindowsTime = lastWindowTimestamp + params.windows_size;
     var processingTime = new Date(lastWindowTimestamp);
 
     // console.log("proccessing tags since: " + new Date(lastWindowTimestamp));
     var query = 'SELECT tag_id, zone_name, time_stamp FROM tag_reads_simple'+
     	' where time_stamp >= ' + lastWindowTimestamp +' and time_stamp < ' + endWindowsTime +
         ' order by time_stamp';
+
     // console.log('query: ' + query);
     // console.log('query started at: ' + new Date());
-
     connection.query(query, function(err, rows, fields) {
 
         // console.log('query finished at: ' + new Date());
@@ -150,11 +159,6 @@ function read_zone_changes(cb) {
             tagzones: tag_zone_changes
         });
     });
-}
-
-if(process.argv.length <= 2) {
-	console.log("\tnode pervasiveidxml.js -o <folder> -t <last detect time [t]hreshold>");
-	return;
 }
 
 var t0 = new Date().getTime();
