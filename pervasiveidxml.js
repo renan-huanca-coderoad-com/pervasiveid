@@ -48,9 +48,9 @@ function read_zone_changes(cb) {
     var processingTime = new Date(lastWindowTimestamp);
 
     // console.log("proccessing tags since: " + new Date(lastWindowTimestamp));
-    var query = 'SELECT tag_id, zone_name FROM tag_reads_simple where time_stamp >= ' +
-        lastWindowTimestamp +
-        ' and time_stamp < ' + endWindowsTime;
+    var query = 'SELECT tag_id, zone_name, time_stamp FROM tag_reads_simple'+
+    	' where time_stamp >= ' + lastWindowTimestamp +' and time_stamp < ' + endWindowsTime +
+        ' order by time_stamp';
     // console.log('query: ' + query);
     // console.log('query started at: ' + new Date());
 
@@ -69,7 +69,11 @@ function read_zone_changes(cb) {
         // get unique tag ids
         var tags = {};
         rows.forEach(function(row) {
-            tags[row.tag_id] = row.zone_name;
+            // tags[row.tag_id] = row.zone_name;
+            tags[row.tag_id] = {
+            	zone: row.zone_name,
+            	timestamp: row.time_stamp
+            };
         });
 
         var count = 0;
@@ -83,22 +87,29 @@ function read_zone_changes(cb) {
 
         // process tags one by one
         for (var tagid in tags) {
-            // console.log("----------------------------");
-            // console.log("Processing tag: "+ tagid);
 
             // find last zone
-            var previous_zone = tagsmap[tagid];
-            var new_zone = null;
+            //var previous_zone = tagsmap[tagid];
+            var taginfo = tagsmap[tagid];
+			var new_zone = null;
+			var previous_zone = null;
 
+            if(taginfo != null) {
+            	previous_zone = tagsmap[tagid].zone;
+            }
+            
             if (previous_zone == null) {
-                new_zone = tags[tagid];
-            } else if (tags[tagid] != previous_zone) {
-                new_zone = tags[tagid];
+                new_zone = tags[tagid].zone;
+            } else if (tags[tagid].zone != previous_zone) {
+                new_zone = tags[tagid].zone;
             }
 
             if (new_zone != null) {
-                // 
-                tagsmap[tagid] = new_zone;
+                tagsmap[tagid] = {
+                	zone: new_zone,
+                	lastDetectTime: tags[tagid].timestamp
+                };
+
                 tag_zone_changes.push({
                     tagid: tagid,
                     zone: new_zone
