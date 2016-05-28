@@ -195,5 +195,5 @@ read_zone_changes(function(err, tagchanges) {
 		tagchanges.tagzones.length + ", " + 
 		tagchanges.zoneChangesCount+ ", " + 
 		tagchanges.lastDetectChangesCount+ ", " +
-		fileSizeInBytes);	  
+		(fileSizeInBytes/(1024*1024)).toFixed(2) + " MB");	  
 });
