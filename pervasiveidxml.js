@@ -1,11 +1,14 @@
 // modules
 var storage = require('node-persist');
 var mysql = require('mysql');
+
 const fs = require('fs');
 
 // constants
 var LAST_WINDOW_TIME = 'lastWindowTime';
+var TAGS_MAP = 'tagsmap';
 var DEFAULT_STARTTIME = 1462173000000;
+var LAST_DETECT_THRESHOULD = 6 * 3600 * 1000; // 6 hours
 
 // initialization
 storage.initSync({
@@ -27,8 +30,13 @@ var connection = mysql.createConnection({
     port: 3307
 });
 
+
 function read_zone_changes(cb) {
-    // main
+	var tagsmap = storage.getItemSync(TAGS_MAP);
+	if(tagsmap == null) {
+		tagsmap = {};
+	}
+
     connection.connect();
 
     var lastWindowTimestamp = storage.getItemSync(LAST_WINDOW_TIME);
@@ -79,7 +87,7 @@ function read_zone_changes(cb) {
             // console.log("Processing tag: "+ tagid);
 
             // find last zone
-            var previous_zone = storage.getItemSync(tagid);
+            var previous_zone = tagsmap[tagid];
             var new_zone = null;
 
             if (previous_zone == null) {
@@ -89,13 +97,15 @@ function read_zone_changes(cb) {
             }
 
             if (new_zone != null) {
-                storage.setItemSync(tagid, new_zone);
+                // 
+                tagsmap[tagid] = new_zone;
                 tag_zone_changes.push({
                     tagid: tagid,
                     zone: new_zone
                 });
             }
         }
+        storage.setItemSync(TAGS_MAP, tagsmap);
         cb(null, {
         	tagCounts: count,
             datetime: processingTime,
