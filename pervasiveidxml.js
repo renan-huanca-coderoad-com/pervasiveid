@@ -26,7 +26,7 @@ storage.initSync({
 
 
 var connection = mysql.createConnection({
-    host: '10.100.0.39',
+    host: 'localhost',
     user: 'root',
     password: 'control123!',
     database: 'pervasid_retail',
@@ -116,6 +116,7 @@ function read_zone_changes(cb) {
         // process tags one by one
         var zoneChangesCount = 0;
         var lastDetectChangesCount = 0;
+        var drops = 0;
         for (var tagid in tags) {
 
             // find last zone
@@ -136,20 +137,28 @@ function read_zone_changes(cb) {
 
             var send = false;
 
-            if(new_zone != null) {
+            if(new_zone != null) 
+            {
             	zoneChangesCount++;
             	send = true;
-            } else if(tags[tagid].timestamp - tagsmap[tagid].timestamp > params.threshold) {
+            	tagsmap[tagid] = {
+                    	zone: new_zone,
+                    	timestamp: tags[tagid].timestamp
+                    };
+            } else if(tags[tagid].timestamp - tagsmap[tagid].timestamp > params.threshold) 
+            {
             	lastDetectChangesCount++;
+            	tagsmap[tagid] = {
+                    	zone:  tagsmap[tagid].zone,
+                    	timestamp: tags[tagid].timestamp
+                    };
             	send = true;
+            } else 
+            {
+            	drops++;
             }
 
             if (send) {
-                tagsmap[tagid] = {
-                	zone: new_zone,
-                	timestamp: tags[tagid].timestamp
-                };
-
                 tag_zone_changes.push({
                     tagid: tagid,
                     zone: tagsmap[tagid]
@@ -161,6 +170,7 @@ function read_zone_changes(cb) {
         	tagCounts: count,
         	zoneChangesCount: zoneChangesCount,
         	lastDetectChangesCount: lastDetectChangesCount,
+        	drops: drops,
             datetime: processingTime,
             tagzones: tag_zone_changes
         });
@@ -196,12 +206,16 @@ read_zone_changes(function(err, tagchanges) {
 	var stats = fs.statSync(outfile);
 	var fileSizeInBytes = stats["size"];
 	console.log(timestamp_str+", "+ 
-		secs + ", " + 
+		secs.toFixed(1)  + ", " + 
 		tagchanges.tagCounts + ", " + 
 		tagchanges.tagzones.length + ", " + 
 		tagchanges.zoneChangesCount+ ", " + 
 		tagchanges.lastDetectChangesCount+ ", " +
-		(fileSizeInBytes/(1024*1024)).toFixed(2) + " MB");
+		tagchanges.drops+ ", DROPS," +
+		(fileSizeInBytes/(1024*1024)).toFixed(2) //+ " MB" (terry removed MB so can be manipulated in excel)
+		// time to xfer over 128Kbps pipe (in seconds)
+		+ ", " + (fileSizeInBytes/128000).toFixed(1) 
+	);
 
 	if(params.aleBridgeUrl != null) {
 		var formData = {
