@@ -152,7 +152,7 @@ function read_zone_changes(cb) {
 
                 tag_zone_changes.push({
                     tagid: tagid,
-                    zone: new_zone
+                    zone: tagsmap[tagid]
                 });
             }
         }
