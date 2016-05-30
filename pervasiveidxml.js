@@ -211,7 +211,7 @@ read_zone_changes(function(err, tagchanges) {
 		tagchanges.tagzones.length + ", " + 
 		tagchanges.zoneChangesCount+ ", " + 
 		tagchanges.lastDetectChangesCount+ ", " +
-		tagchanges.drops+ ", DROPS," +
+		tagchanges.drops+ ", " +
 		(fileSizeInBytes/(1024*1024)).toFixed(2) //+ " MB" (terry removed MB so can be manipulated in excel)
 		// time to xfer over 128Kbps pipe (in seconds)
 		+ ", " + (fileSizeInBytes/128000).toFixed(1) 
