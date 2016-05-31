@@ -1,5 +1,3 @@
-
-
 /**
  * A simple Zone Name Change filter, that leaks lastDetects.
  * 
@@ -13,7 +11,7 @@
  * blinkHistoryMap[tagid].timestamp
  * blinkHistoryMap[tagid].zone
  * 
- * threshold - the threshold value in seconds for leaking lastDetect records
+ * threshold - the threshold value in milliseconds for leaking lastDetect records
  * 
  * NOTE: blinkHistoryMap is modified, so make sure you pesist it after calling this method !
  * 
