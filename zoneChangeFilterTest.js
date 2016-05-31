@@ -62,11 +62,11 @@ for(indexParam = 2; indexParam < process.argv.length; indexParam++)
 
 function read_zone_changes(cb) 
 {
-	var tagsmap = storage.getItemSync(TAGS_MAP);
-	if(tagsmap == null)
-	{
-		tagsmap = {};
-	}
+//	var tagsmap = storage.getItemSync(TAGS_MAP);
+//	if(tagsmap == null)
+//	{
+//		tagsmap = {};
+//	}
 
     connection.connect();
 
@@ -110,9 +110,11 @@ function read_zone_changes(cb)
             } );
         });
 
-        var value = zcf.filter( tags, tagsmap, params.threshhold );
+        zcf.setStorage( storage );
+        var value = zcf.filter( tags, params.threshhold );
+        zcf.persistHistory();
         
-		storage.setItemSync(TAGS_MAP, tagsmap);
+		//storage.setItemSync(TAGS_MAP, tagsmap);
 
         cb(null, {
         	tagCounts: value.count,
