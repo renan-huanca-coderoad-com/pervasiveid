@@ -6,6 +6,8 @@ var method = ZoneDwellFilter.prototype;
 
 function ZoneDwellFilter() 
 {
+	// BEGIN PUBLIC PARAMS
+	
     // distance limits for "pops"
     this.unlockDistance = 10.0;
     
@@ -17,6 +19,8 @@ function ZoneDwellFilter()
     
     // dwellTime limit (in seconds)
     this.lastDetectTimeWindow = 5.0;
+    
+    // END PUBLIC PARAMS
     
     // key=serialNumber
     this.map = {};

@@ -30,7 +30,7 @@ var connection = mysql.createConnection({
     user: 'root',
     password: 'control123!',
     database: 'pervasid_retail',
-    port: 3306
+    port: 3307
 });
 
 var params = {
@@ -59,69 +59,89 @@ for(indexParam = 2; indexParam < process.argv.length; indexParam++)
 	}
 }
 
-function filter( tags, tagmap )
+/**
+ * A simple Zone Name Change filter, that leaks lastDetects.
+ * 
+ * A array of the current set of blinks:
+ * 
+ * blinkArray[index].tagid
+ * blinkArray[index].timestamp
+ * blinkArray[index].zone
+ * 
+ * A map of the set of blinks from persistent storage:
+ * blinkHistoryMap[tagid].timestamp
+ * blinkHistoryMap[tagid].zone
+ * 
+ * threshold - the threshold value in seconds for leaking lastDetect records
+ * 
+ * NOTE: blinkHistoryMap is modified, so make sure you pesist it after calling this method !
+ * 
+ */
+function filter( blinkArray, blinkHistoryMap, threshold )
 {
 	var value = new Object();
 
-	var tag_zone_changes = [];
-
-	// process tags one by one
+	value.tagZoneChanges = [];
+	// count = zoneChangeCount + lastDetectCount + dropCount
 	value.count = 0;
-	value.zoneChangesCount = 0;
-	value.lastDetectChangesCount = 0;
-	value.drops = 0;
-	for (var tagid in tags)
+	value.zoneChangeCount = 0;
+	value.lastDetectCount = 0;
+	value.dropCount = 0;
+	
+	for( var i = 0; i <  blinkArray.length; i++ )
 	{
-		count++;
-		var previous_zone = null;
+		var tagid = blinkArray[i].tagid;
+		
 		var send = false;
 
-		if( tagsmap[tagid] != null)
+		// case 1: send if first blink or zone name is not equal to last zone name
+		if( blinkHistoryMap[tagid] == null || blinkHistoryMap[tagid].zone != blinkArray[i].zone )
 		{
-			previous_zone = tagsmap[tagid].zone;
-		}
-
-		if( previous_zone == null || tags[tagid].zone != previous_zone )
-		{
-			zoneChangesCount++;
-			send = true;
-			tagsmap[tagid] =
+			blinkHistoryMap[tagid] =
 			{
-				zone: tags[tagid].zone,
-				timestamp: tags[tagid].timestamp
-			};
-		}
-		else if(tags[tagid].timestamp - tagsmap[tagid].timestamp > params.threshold)
-		{
-			lastDetectChangesCount++;
-			tagsmap[tagid] =
-			{
-				zone: tagsmap[tagid].zone,
-				timestamp: tags[tagid].timestamp
+				timestamp: blinkArray[i].timestamp,
+				zone: blinkArray[i].zone
 			};
 			send = true;
+			value.zoneChangeCount++;
 		}
+		// case 2: send if lastDetect time threshold has been execeded
+		else if( blinkArray[i].timestamp - blinkHistoryMap[tagid].timestamp > threshold )
+		{
+			blinkHistoryMap[tagid] =
+			{
+				timestamp: blinkArray[i].timestamp,
+				zone: blinkArray[i].zone
+			};
+			send = true;
+			value.lastDetectCount++;
+		}
+		// case 3 : drop this blink
 		else
 		{
-			drops++;
+			value.dropCount++;
 		}
 
-		if (send)
+		if( send ) 
 		{
-			tag_zone_changes.push({
+			value.tagZoneChanges.push( {
 				tagid: tagid,
-				zone: tagsmap[tagid].zone
-			});
-
+				timestamp: blinkHistoryMap[tagid].timestamp,
+				zone: blinkHistoryMap[tagid].zone
+			} );
 		}
+		
+		value.count++;
 	}
 
 	return value;
 }
 
-function read_zone_changes(cb) {
+function read_zone_changes(cb) 
+{
 	var tagsmap = storage.getItemSync(TAGS_MAP);
-	if(tagsmap == null) {
+	if(tagsmap == null)
+	{
 		tagsmap = {};
 	}
 
@@ -136,6 +156,8 @@ function read_zone_changes(cb) {
     var processingTime = new Date(lastWindowTimestamp);
 
      console.log("proccessing tags since: " + new Date(lastWindowTimestamp));
+     console.log("proccessing tags since: " + new Date(endWindowsTime));
+     
     var query = 'SELECT DISTINCT tag_id, zone_name, time_stamp FROM tag_reads_simple'+
     	' where time_stamp >= ' + lastWindowTimestamp +' and time_stamp < ' + endWindowsTime +
         ' order by time_stamp';
@@ -143,7 +165,7 @@ function read_zone_changes(cb) {
      console.log('query: ' + query);
      console.log('query started at: ' + new Date());
     connection.query(query, function(err, rows, fields) {
-
+    	console.log('err  :' + err);
          console.log('query finished at: ' + new Date());
          console.log('rows returned :' + rows.length);
         if (err) throw err;
@@ -155,84 +177,37 @@ function read_zone_changes(cb) {
         // process rows
         var i;
         // get unique tag ids
-        var tags = {};
+        var tags = [];
         rows.forEach(function(row) {
             // tags[row.tag_id] = row.zone_name;
-            tags[row.tag_id] = {
+            tags.push( {
+            	tagid: row.tag_id,
             	zone: row.zone_name,
             	timestamp: row.time_stamp
-            };
+            } );
         });
 
-        var tag_zone_changes = [];
-
-        // process tags one by one
-		var count = 0;
-        var zoneChangesCount = 0;
-        var lastDetectChangesCount = 0;
-        var drops = 0;
-        for (var tagid in tags)
-		{
-			count++;
-			var previous_zone = null;
-			var send = false;
-
-            if( tagsmap[tagid] != null)
-			{
-            	previous_zone = tagsmap[tagid].zone;
-            }
-
-            if( previous_zone == null || tags[tagid].zone != previous_zone )
-            {
-            	zoneChangesCount++;
-            	send = true;
-            	tagsmap[tagid] =
-				{
-					zone: tags[tagid].zone,
-					timestamp: tags[tagid].timestamp
-				};
-            }
-			else if(tags[tagid].timestamp - tagsmap[tagid].timestamp > params.threshold)
-            {
-            	lastDetectChangesCount++;
-            	tagsmap[tagid] =
-				{
-					zone: tagsmap[tagid].zone,
-					timestamp: tags[tagid].timestamp
-				};
-            	send = true;
-            }
-			else
-            {
-            	drops++;
-            }
-
-            if (send)
-			{
-                tag_zone_changes.push({
-                    tagid: tagid,
-                    zone: tagsmap[tagid].zone
-                });
-
-            }
-        }
-
+        
+        var value = filter( tags, tagsmap, params.threshhold );
+        
 		storage.setItemSync(TAGS_MAP, tagsmap);
 
         cb(null, {
-        	tagCounts: count,
-        	zoneChangesCount: zoneChangesCount,
-        	lastDetectChangesCount: lastDetectChangesCount,
-        	drops: drops,
-            datetime: processingTime,
-            tagzones: tag_zone_changes
+        	tagCounts: value.count,
+        	zoneChangesCount: value.zoneChangeCount,
+        	lastDetectChangesCount: value.lastDetectCount,
+        	drops: value.dropCount,
+            datetime: endWindowsTime,
+            tagzones:value.tagZoneChanges
         });
     });
 }
 
 var t0 = new Date().getTime();
 
-read_zone_changes(function(err, tagchanges) {
+read_zone_changes(function(err, tagchanges) 
+{
+	console.log( 't=' + tagchanges.datetime );
 	var timestamp_str = new Date(tagchanges.datetime).toISOString();
 	var header = fs.readFileSync('header.xml').toString();
 	var footer = fs.readFileSync('footer.xml').toString();

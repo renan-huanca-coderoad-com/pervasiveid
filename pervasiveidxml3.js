@@ -26,7 +26,7 @@ storage.initSync({
 
 
 var connection = mysql.createConnection({
-    host: '10.100.0.39',
+    host: 'localhost',
     user: 'root',
     password: 'control123!',
     database: 'pervasid_retail',
@@ -59,13 +59,9 @@ for(indexParam = 2; indexParam < process.argv.length; indexParam++)
 	}
 }
 
-function read_zone_changes(cb) {
-	var tagsmap = storage.getItemSync(TAGS_MAP);
-	if(tagsmap == null) {
-		tagsmap = {};
-	}
-
-    connection.connect();
+function read_zone_changes(cb) 
+{
+	connection.connect();
 
     var lastWindowTimestamp = storage.getItemSync(LAST_WINDOW_TIME);
     if(!lastWindowTimestamp) {
@@ -82,21 +78,21 @@ function read_zone_changes(cb) {
 
     // console.log('query: ' + query);
     // console.log('query started at: ' + new Date());
-    connection.query(query, function(err, rows, fields) {
-
+    connection.query(query, function(err, rows, fields) 
+    {
         // console.log('query finished at: ' + new Date());
         // console.log('rows returned :' + rows.length);
         if (err) throw err;
 
         connection.end();
 
-        storage.setItemSync(LAST_WINDOW_TIME, endWindowsTime);
-
         // process rows
         var i;
         // get unique tag ids
         var tags = {};
-        rows.forEach(function(row) {
+        
+        rows.forEach(function(row) 
+        {
             // tags[row.tag_id] = row.zone_name;
             tags[row.tag_id] = {
             	zone: row.zone_name,
@@ -105,75 +101,15 @@ function read_zone_changes(cb) {
         });
 
         var count = 0;
-        for (var tagid in tags) {
-            if (tags.hasOwnProperty(tagid)) {
+        for (var tagid in tags) 
+        {
+            if (tags.hasOwnProperty(tagid)) 
+            {
                 ++count;
             }
         }
 
-        var tag_zone_changes = [];
-
-        // process tags one by one
-        var zoneChangesCount = 0;
-        var lastDetectChangesCount = 0;
-        var drops = 0;
-        for (var tagid in tags) {
-
-            // find last zone
-            //var previous_zone = tagsmap[tagid];
-            var taginfo = tagsmap[tagid];
-			var new_zone = null;
-			var previous_zone = null;
-
-            if(taginfo != null) {
-            	previous_zone = tagsmap[tagid].zone;
-            }
-            
-            if (previous_zone == null) {
-                new_zone = tags[tagid].zone;
-            } else if (tags[tagid].zone != previous_zone) {
-                new_zone = tags[tagid].zone;
-            }
-
-            var send = false;
-
-            if(new_zone != null) 
-            {
-            	zoneChangesCount++;
-            	send = true;
-            	tagsmap[tagid] = {
-                    	zone: new_zone,
-                    	timestamp: tags[tagid].timestamp
-                    };
-            } else if(tags[tagid].timestamp - tagsmap[tagid].timestamp > params.threshold) 
-            {
-            	lastDetectChangesCount++;
-            	tagsmap[tagid] = {
-                    	zone:  tagsmap[tagid].zone,
-                    	timestamp: tags[tagid].timestamp
-                    };
-            	send = true;
-            } else 
-            {
-            	drops++;
-            }
-
-            if (send) {
-                tag_zone_changes.push({
-                    tagid: tagid,
-                    zone: tagsmap[tagid]
-                });
-            }
-        }
-        storage.setItemSync(TAGS_MAP, tagsmap);
-        cb(null, {
-        	tagCounts: count,
-        	zoneChangesCount: zoneChangesCount,
-        	lastDetectChangesCount: lastDetectChangesCount,
-        	drops: drops,
-            datetime: processingTime,
-            tagzones: tag_zone_changes
-        });
+      
     });
 }
 
@@ -211,7 +147,7 @@ read_zone_changes(function(err, tagchanges) {
 		tagchanges.tagzones.length + ", " + 
 		tagchanges.zoneChangesCount+ ", " + 
 		tagchanges.lastDetectChangesCount+ ", " +
-		tagchanges.drops+ ", " +
+		drops+ ", " +
 		(fileSizeInBytes/(1024*1024)).toFixed(2) //+ " MB" (terry removed MB so can be manipulated in excel)
 		// time to xfer over 128Kbps pipe (in seconds)
 		+ ", " + (fileSizeInBytes/128000).toFixed(1) 
